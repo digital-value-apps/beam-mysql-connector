@@ -2,7 +2,7 @@
 
 import re
 from logging import INFO, getLogger
-from typing import Dict, Generator
+from typing import Dict, Generator, List, Union
 
 import mysql.connector
 from mysql.connector.errors import Error as MySQLConnectorError
@@ -11,6 +11,7 @@ from beam_mysql.connector.errors import MySQLClientError
 
 _SELECT_STATEMENT = "SELECT"
 _INSERT_STATEMENT = "INSERT"
+_REPLACE_STATEMENT = "REPLACE"
 
 logger = getLogger(__name__)
 logger.setLevel(INFO)
@@ -145,12 +146,12 @@ class MySQLClient:
         Load dict record into mysql.
 
         Args:
-            query: query with insert or update statement
+            query: query with insert, update or replace statement
 
         Raises:
             ~beam_mysql.connector.errors.MySQLClientError
         """
-        self._validate_query(query, _INSERT_STATEMENT)
+        self._validate_query(query, [_INSERT_STATEMENT, _REPLACE_STATEMENT])
 
         with _MySQLConnection(self._config) as conn:
             cur = conn.cursor()
@@ -176,7 +177,7 @@ class MySQLClient:
             )
 
     @staticmethod
-    def _validate_query(query: str, statement: str) -> None:
+    def _validate_query(query: str, statements: Union[str, List[str]]) -> None:
         def _remove_comments_and_cte(query):
             # delete comments
             query = re.sub(r"--.*\n", " ", query)
@@ -194,9 +195,15 @@ class MySQLClient:
 
         cleansed_query = _remove_comments_and_cte(query)
 
-        if statement and not cleansed_query.lower().startswith(statement.lower()):
+        statements = [statements] if isinstance(statements, str) else statements
+
+        if not any(
+            statement
+            for statement in statements
+            if cleansed_query.lower().startswith(statement.lower())
+        ):
             raise MySQLClientError(
-                f"Query expected to start with {statement} statement. Query: {query}"
+                f"Query expected to start with {' or '.join(statements)} statement(s). Query: {query}"
             )
 
 
