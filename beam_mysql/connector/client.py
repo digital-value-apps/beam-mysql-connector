@@ -168,7 +168,7 @@ class MySQLClient:
         query = query.lstrip()
 
         # Check if query starts with any given statement
-        if any(map(lambda x: x and query.lower().startswith(x.lower()), statements)):
+        if not any(map(lambda x: x and query.lower().startswith(x.lower()), statements)):
             raise MySQLClientError(f"Query expected to start with one of these statement: {statements}. Query: {query}")
 
 
